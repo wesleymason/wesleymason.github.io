@@ -1,0 +1,12 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["L6P48ULP9H.com.wesmason.tab"],
+        "components": [
+          { "/": "/tab/split/*", "comment": "A split shared from Tab opens in Tab and saves the receipt." }
+        ]
+      }
+    ]
+  }
+}

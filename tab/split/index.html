@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Your share · Tab</title>
+<meta name="description" content="A split from Tab. Tap to see your share and save the receipt in Tab.">
+<meta property="og:title" content="Your share of the bill">
+<meta property="og:description" content="Sent with Tab. Tap to see your share and save the receipt.">
+<meta property="og:image" content="https://wesleymason.github.io/tab/icon.png">
+<meta name="apple-itunes-app" content="app-id=6830925562">
+<link rel="icon" href="/tab/icon.png">
+<style>
+  :root {
+    color-scheme: light dark;
+    --background: #F4F2EC; --surface: #FDFCF8; --divider: #E3DFD6;
+    --text: #1F1D1A; --text-secondary: #6B675F; --accent: #2C6BD1; --on-accent: #FFFFFF;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: #1A1918; --surface: #262523; --divider: #393734;
+      --text: #F3F1EC; --text-secondary: #A39F97; --accent: #5E9BE8; --on-accent: #0A1730;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--background); color: var(--text);
+    font: 17px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    display: flex; justify-content: center; padding: 48px 16px calc(32px + env(safe-area-inset-bottom));
+  }
+  main { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 16px; }
+  .brand { display: flex; align-items: center; gap: 10px; color: var(--text-secondary); font-size: 15px; }
+  .brand img { width: 32px; height: 32px; border-radius: 8px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--divider); border-radius: 20px; padding: 20px 16px;
+  }
+  .place { font-size: 22px; font-weight: 700; margin: 0; }
+  .date { color: var(--text-secondary); font-size: 15px; margin: 2px 0 20px; }
+  .label { color: var(--text-secondary); font-size: 15px; }
+  .share { font-size: 48px; font-weight: 700; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; margin: 2px 0 4px; }
+  .note { color: var(--text-secondary); font-size: 15px; }
+  .rows { display: flex; flex-direction: column; gap: 10px; }
+  .row { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+  .row span:first-child { color: var(--text-secondary); }
+  .total { border-top: 1px solid var(--divider); padding-top: 10px; font-weight: 600; }
+  .total span:first-child { color: var(--text); }
+  .cta {
+    display: block; text-align: center; text-decoration: none; background: var(--accent); color: var(--on-accent);
+    font-weight: 600; font-size: 17px; padding: 16px; border-radius: 999px;
+  }
+  .hint { color: var(--text-secondary); font-size: 13px; text-align: center; margin: 0 8px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand"><img src="/tab/icon.png" alt=""><span>Sent with Tab</span></div>
+
+  <section id="split" class="card" hidden>
+    <h1 class="place" id="place"></h1>
+    <p class="date" id="date"></p>
+    <div class="label">Your share</div>
+    <div class="share" id="share"></div>
+    <div class="note" id="splitNote"></div>
+  </section>
+
+  <section id="breakdown" class="card rows" hidden>
+    <div class="row" id="subtotalRow"><span id="subtotalLabel">Subtotal</span><span id="subtotal"></span></div>
+    <div class="row" id="taxRow"><span>Tax</span><span id="tax"></span></div>
+    <div class="row"><span id="tipLabel">Tip</span><span id="tip"></span></div>
+    <div class="row total"><span>Total</span><span id="total"></span></div>
+  </section>
+
+  <section id="empty" class="card" hidden>
+    <h1 class="place">Tab</h1>
+    <p class="date">Work out the tip, split the bill and keep every receipt.</p>
+  </section>
+
+  <a class="cta" id="getTab" href="https://apps.apple.com/app/id6830925562">Get Tab on the App Store</a>
+  <p class="hint" id="hint" hidden>Have Tab? Open this link on your iPhone and the receipt saves straight into it.</p>
+</main>
+
+<script>
+  // The split travels after the "#", which the browser never sends to a server, so it is
+  // read here and shown, and stored nowhere. Every value goes in as text, never as markup.
+  (function () {
+    var categories = { restaurant: "Restaurant", bar: "Bar", cafe: "Cafe", delivery: "Delivery", other: "Other" };
+
+    function decode(fragment) {
+      try {
+        var base64 = fragment.replace(/-/g, "+").replace(/_/g, "/");
+        while (base64.length % 4) base64 += "=";
+        var bytes = Uint8Array.from(atob(base64), function (c) { return c.charCodeAt(0); });
+        var split = JSON.parse(new TextDecoder().decode(bytes));
+        if (typeof split.o !== "number" || !(split.n >= 1)) return null;
+        return split;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function set(id, text) { document.getElementById(id).textContent = text; }
+
+    var split = decode(location.hash.slice(1));
+    if (!split) {
+      document.getElementById("empty").hidden = false;
+      return;
+    }
+
+    var currency = typeof split.u === "string" && /^[A-Z]{3}$/.test(split.u) ? split.u : "USD";
+    var money = new Intl.NumberFormat(undefined, { style: "currency", currency: currency });
+    var place = typeof split.m === "string" && split.m ? split.m : (categories[split.c] || "Your meal");
+    var date = new Date((split.d || 0) * 1000);
+    var people = Math.round(split.n);
+
+    set("place", place);
+    set("date", date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" }));
+    set("share", money.format(split.o / people));
+    set("splitNote", money.format(split.o) + " split " + people + " ways, tip included");
+    document.title = place + " · Your share · Tab";
+
+    var hasTax = typeof split.x === "number" && split.x > 0;
+    set("subtotalLabel", hasTax ? "Subtotal" : "Bill");
+    set("subtotal", money.format(split.s || 0));
+    if (hasTax) set("tax", money.format(split.x)); else document.getElementById("taxRow").hidden = true;
+    set("tipLabel", "Tip" + (typeof split.p === "number" ? " · " + split.p + "%" : ""));
+    set("tip", money.format(split.t || 0));
+    set("total", money.format(split.o));
+
+    document.getElementById("split").hidden = false;
+    document.getElementById("breakdown").hidden = false;
+    document.getElementById("hint").hidden = false;
+  })();
+</script>
+</body>
+</html>
