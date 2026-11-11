@@ -59,8 +59,9 @@
   <section id="split" class="card" hidden>
     <h1 class="place" id="place"></h1>
     <p class="date" id="date"></p>
-    <div class="label">Your share</div>
+    <div class="label" id="shareLabel">Your share</div>
     <div class="share" id="share"></div>
+    <div class="rows" id="people" hidden></div>
     <div class="note" id="splitNote"></div>
   </section>
 
@@ -115,7 +116,28 @@
 
     set("place", place);
     set("date", date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" }));
-    set("share", money.format(split.o / people));
+    // Split unevenly, the link carries what each person pays; evenly, everyone's share is the same.
+    var payments = Array.isArray(split.y) && split.y.length === people && split.y.every(function (p) { return typeof p === "number"; }) ? split.y : null;
+    if (payments) {
+      set("shareLabel", "Each person pays");
+      document.getElementById("share").hidden = true;
+      var list = document.getElementById("people");
+      payments.forEach(function (payment, index) {
+        var row = document.createElement("div");
+        row.className = "row";
+        var name = document.createElement("span");
+        name.textContent = "Person " + (index + 1);
+        var amount = document.createElement("span");
+        amount.textContent = money.format(payment);
+        row.appendChild(name);
+        row.appendChild(amount);
+        list.appendChild(row);
+      });
+      list.hidden = false;
+      list.style.margin = "4px 0 12px";
+    } else {
+      set("share", money.format(split.o / people));
+    }
     set("splitNote", money.format(split.o) + " split " + people + " ways, tip included");
     document.title = place + " · Your share · Tab";
 
